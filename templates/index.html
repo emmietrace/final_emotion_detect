@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Emotion Vortex</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  <link rel="stylesheet" href="../static/style.css" />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
@@ -26,6 +26,12 @@
         <div class="file-input">
           <input type="file" id="image" accept="image/*" required />
           <label for="image">Choose Image</label>
+        </div>
+        <div id="upload-preview" class="upload-preview hidden">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#2ecc71" stroke-width="2">
+            <path d="M20 6L9 17l-5-5"/>
+          </svg>
+          <span>Image ready!</span>
         </div>
         <button type="submit" id="analyze-button">Analyze Emotion</button>
       </form>
@@ -63,17 +69,38 @@
       if (tabName === 'webcam') startWebcam();
     }
 
+    // Upload preview icon
+    document.getElementById('image').addEventListener('change', () => {
+      const preview = document.getElementById('upload-preview');
+      if (document.getElementById('image').files.length > 0) {
+        preview.classList.remove('hidden');
+      } else {
+        preview.classList.add('hidden');
+      }
+    });
+
     // Upload form
     document.getElementById('upload-form').onsubmit = async (e) => {
       e.preventDefault();
+      const button = document.getElementById('analyze-button');
+      button.disabled = true;
+      button.textContent = 'Analyzing...';
+
       const formData = new FormData();
       formData.append('name', document.getElementById('name-upload').value);
       formData.append('image', document.getElementById('image').files[0]);
 
-      const res = await fetch('/upload', { method: 'POST', body: formData });
-      const data = await res.json();
-      document.getElementById("analyze-button").value = "Analyzing";
-      if (data.emotion) showResult(data, document.getElementById('name-upload').value);
+      try {
+        const res = await fetch('/upload', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        if (data.emotion) showResult(data, document.getElementById('name-upload').value);
+      } catch (err) {
+        alert('Error: ' + err.message);
+      } finally {
+        button.disabled = false;
+        button.textContent = 'Analyze Emotion';
+      }
     };
 
     // Webcam
@@ -84,23 +111,35 @@
         .then(s => {
           stream = s;
           document.getElementById('video').srcObject = s;
-        }).catch(err => alert("Camera access denied"));
+        }).catch(err => alert("Camera access denied: " + err.message));
     }
 
     document.getElementById('capture').onclick = async () => {
+      const button = document.getElementById('capture');
+      button.disabled = true;
+      button.textContent = 'Analyzing...';
+
       const canvas = document.getElementById('canvas');
       const ctx = canvas.getContext('2d');
       ctx.drawImage(document.getElementById('video'), 0, 0, 48, 48);
       const dataUrl = canvas.toDataURL('image/jpeg');
       const name = document.getElementById('name-webcam').value;
 
-      const res = await fetch('/webcam', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: dataUrl, name })
-      });
-      const data = await res.json();
-      if (data.emotion) showResult(data, name);
+      try {
+        const res = await fetch('/webcam', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: dataUrl, name })
+        });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        if (data.emotion) showResult(data, name);
+      } catch (err) {
+        alert('Error: ' + err.message);
+      } finally {
+        button.disabled = false;
+        button.textContent = 'Capture & Analyze';
+      }
     };
 
     function showResult(data, name) {
@@ -109,10 +148,10 @@
       document.getElementById('result-name').textContent = name;
       document.getElementById('emotion').textContent = data.emotion;
       document.getElementById('emotion').className = 'emotion-tag ' + data.emotion.toLowerCase();
-      document.getElementById('confidence').textContent = (data.confidence * 100).toFixed(1);
+      document.getElementById('confidence').textContent = data.confidence.toFixed(1);
     }
 
-    // Stop webcam on tab change
+    // Stop webcam on leave
     window.addEventListener('beforeunload', () => {
       if (stream) stream.getTracks().forEach(t => t.stop());
     });
