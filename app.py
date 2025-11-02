@@ -1,32 +1,33 @@
-# app.py - LOCAL VERSION (NO NGROK)
+# app.py - VERCEL VERSION
 from flask import Flask, render_template, request, jsonify
 import cv2
 import numpy as np
 import os
 import sqlite3
 from datetime import datetime
-from tensorflow.keras.models import load_model
+from tensorflow.keras.models import load_model  # Or 'from keras.models import load_model'
 import base64
 
 # -------------------------------
-# FLASK SETUP
+# FLASK SETUP (Vercel-compatible)
 # -------------------------------
 app = Flask(__name__, template_folder='templates', static_folder='static')
 app.config['UPLOAD_FOLDER'] = 'static/uploads'
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 # -------------------------------
-# LOAD MODEL
+# LOAD MODEL (External if size issue)
 # -------------------------------
 MODEL_PATH = 'emotion_model_vortex.h5'
 if not os.path.exists(MODEL_PATH):
-    print(f"ERROR: {MODEL_PATH} not found!")
-    exit()
+    # Download from GitHub/Hugging Face if excluded
+    import urllib.request
+    urllib.request.urlretrieve('https://github.com/emmietrace/emotion_detect/raw/main/emotion_model_vortex.h5', MODEL_PATH)
 MODEL = load_model(MODEL_PATH)
 EMOTIONS = ['angry', 'disgust', 'fear', 'happy', 'neutral', 'sad', 'surprise']
 
 # -------------------------------
-# DATABASE
+# DATABASE (Ephemeral on Vercel—use external DB for prod)
 # -------------------------------
 DB_PATH = 'emotions.db'
 def init_db():
@@ -96,7 +97,7 @@ def upload():
 
 @app.route('/webcam', methods=['POST'])
 def webcam():
-    name = request.json['name']
+    name = request.form['name']
     data = request.json['image'].split(',')[1]
     nparr = np.frombuffer(base64.b64decode(data), np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
@@ -115,18 +116,15 @@ def webcam():
     })
 
 # -------------------------------
-# RUN APP
+# VERCEL HANDLER (Required for serverless)
 # -------------------------------
-if __name__ != '__main__':
+def handler(request):
+    from gevent.pywsgi import WSGIServer
     from gevent import monkey
     monkey.patch_all()
-    
-if __name__ == '__main__':
-    print("Emotion Vortex running at http://localhost:5000")
-    print("Press Ctrl+C to stop")
-    app.run(host='127.0.0.1', port=5000, debug=True)
-    
-    # ... (your existing code)
+    server = WSGIServer(('', 9000), app)
+    server.serve_forever()
+    return app(request.environ, lambda *args, **kwargs: None)
 
-
-
+if __name__ == "__main__":
+    app.run(debug=True)
