@@ -1,7 +1,7 @@
 setuptools>=70.0.0
 wheel>=0.40.0
+numpy==1.26.4
 Flask==2.3.3
-tensorflow-cpu==2.20.0
-opencv-python-headless==4.8.1.78
+tensorflow-cpu==2.15.1
+opencv-python-headless==4.10.0.84
 gunicorn==21.2.0
-greenlet==3.1.1
