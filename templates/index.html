@@ -1,121 +1,171 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Emotion Vortex</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emotion Vortex</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/webcamjs/1.0.25/webcam.min.js"></script>
+    <style>
+        .loader { display: none; border: 8px solid #f3f3f3; border-top: 8px solid #3498db; border-radius: 50%; width: 60px; height: 60px; animation: spin 1s linear infinite; margin: 20px auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .result { margin-top: 20px; padding: 15px; border: 2px solid #4CAF50; border-radius: 10px; background: #f0f8ff; }
+        .error { color: red; font-weight: bold; }
+        .tab { overflow: hidden; border: 1px solid #ccc; background-color: #f1f1f1; }
+        .tab button { background-color: inherit; float: left; border: none; outline: none; cursor: pointer; padding: 14px 16px; transition: 0.3s; }
+        .tab button:hover { background-color: #ddd; }
+        .tab button.active { background-color: #ccc; }
+        .tabcontent { display: none; padding: 20px; border: 1px solid #ccc; border-top: none; }
+        #webcam, #results { width: 320px; height: 240px; border: 2px solid #333; margin: 10px auto; }
+    </style>
 </head>
 <body>
-  <div class="container">
-    <header>
-      <h1>Emotion Vortex</h1>
-      <p>Detect emotions with AI-powered precision</p>
-    </header>
+    <div class="container">
+        <h1>Emotion Vortex</h1>
+        <p>Upload or capture a face to detect emotion</p>
 
-    <div class="tabs">
-      <button class="tab-btn active" onclick="openTab('upload')">Upload Image</button>
-      <button class="tab-btn" onclick="openTab('webcam')">Live Webcam</button>
-    </div>
-
-    <!-- Upload Tab -->
-    <div id="upload" class="tab-content active">
-      <form id="upload-form" enctype="multipart/form-data">
-        <input type="text" id="name-upload" placeholder="Your Name" required />
-        <div class="file-input">
-          <input type="file" id="image" accept="image/*" required />
-          <label for="image">Choose Image</label>
+        <div class="tab">
+            <button class="tablinks active" onclick="openTab(event, 'Upload')">Upload Image</button>
+            <button class="tablinks" onclick="openTab(event, 'Webcam')">Webcam</button>
         </div>
-        <button type="submit" id="analyze-button">Analyze Emotion</button>
-      </form>
+
+        <!-- Upload Tab -->
+        <div id="Upload" class="tabcontent" style="display: block;">
+            <form id="uploadForm" enctype="multipart/form-data">
+                <input type="text" id="nameUpload" placeholder="Your Name" required>
+                <input type="file" id="imageUpload" accept="image/*" required>
+                <button type="submit">Analyze</button>
+            </form>
+            <div class="loader" id="loaderUpload"></div>
+            <div id="resultUpload"></div>
+        </div>
+
+        <!-- Webcam Tab -->
+        <div id="Webcam" class="tabcontent">
+            <input type="text" id="nameWebcam" placeholder="Your Name" required>
+            <div id="webcam"></div>
+            <button onclick="takeSnapshot()">Capture</button>
+            <div class="loader" id="loaderWebcam"></div>
+            <div id="results"></div>
+            <div id="resultWebcam"></div>
+        </div>
+
+        <h2>Past Detections</h2>
+        <div id="history">
+            <!-- Images loaded dynamically -->
+        </div>
     </div>
 
-    <!-- Webcam Tab -->
-    <div id="webcam" class="tab-content">
-      <input type="text" id="name-webcam" placeholder="Your Name" required />
-      <div class="camera-container">
-        <video id="video" autoplay playsinline></video>
-        <canvas id="canvas" width="48" height="48" style="display:none;"></canvas>
-      </div>
-      <button id="capture">Capture & Analyze</button>
-    </div>
+    <script>
+        // Tab Switching
+        function openTab(evt, tabName) {
+            const tabs = document.getElementsByClassName("tabcontent");
+            for (let i = 0; i < tabs.length; i++) tabs[i].style.display = "none";
+            const buttons = document.getElementsByClassName("tablinks");
+            for (let i = 0; i < buttons.length; i++) buttons[i].classList.remove("active");
+            document.getElementById(tabName).style.display = "block";
+            evt.currentTarget.classList.add("active");
+        }
 
-    <!-- Result -->
-    <div id="result" class="result hidden">
-      <h2>Detected Emotion</h2>
-      <img id="result-img" alt="Captured" />
-      <div class="emotion-info">
-        <p><strong>Name:</strong> <span id="result-name"></span></p>
-        <p><strong>Emotion:</strong> <span id="emotion" class="emotion-tag"></span></p>
-        <p><strong>Confidence:</strong> <span id="confidence"></span>%</p>
-      </div>
-    </div>
-  </div>
+        // Upload Image
+        document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('nameUpload').value;
+            const file = document.getElementById('imageUpload').files[0];
+            if (!file || !name) return alert("Name and image required");
 
-  <script>
-    // Tab switching
-    function openTab(tabName) {
-      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-      document.getElementById(tabName).classList.add('active');
-      document.querySelector(`button[onclick="openTab('${tabName}')"]`).classList.add('active');
-      if (tabName === 'webcam') startWebcam();
-    }
+            const formData = new FormData();
+            formData.append('name', name);
+            formData.append('image', file);
 
-    // Upload form
-    document.getElementById('upload-form').onsubmit = async (e) => {
-      e.preventDefault();
-      const formData = new FormData();
-      formData.append('name', document.getElementById('name-upload').value);
-      formData.append('image', document.getElementById('image').files[0]);
+            const loader = document.getElementById('loaderUpload');
+            const result = document.getElementById('resultUpload');
+            loader.style.display = 'block';
+            result.innerHTML = '';
 
-      const res = await fetch('/upload', { method: 'POST', body: formData });
-      const data = await res.json();
-      document.getElementById("analyze-button").value = "Analyzing";
-      if (data.emotion) showResult(data, document.getElementById('name-upload').value);
-    };
+            try {
+                const res = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
 
-    // Webcam
-    let stream;
-    function startWebcam() {
-      if (stream) return;
-      navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
-        .then(s => {
-          stream = s;
-          document.getElementById('video').srcObject = s;
-        }).catch(err => alert("Camera access denied"));
-    }
+                result.innerHTML = `
+                    <div class="result">
+                        <h3>${name}, you look <strong>${data.emotion}</strong>!</h3>
+                        <p>Confidence: ${data.confidence}%</p>
+                        <img src="${data.image_url}?t=${Date.now()}" width="300" style="border-radius: 10px;">
+                    </div>`;
+                loadHistory();
+            } catch (err) {
+                result.innerHTML = `<p class="error">Error: ${err.message}</p>`;
+            } finally {
+                loader.style.display = 'none';
+            }
+        });
 
-    document.getElementById('capture').onclick = async () => {
-      const canvas = document.getElementById('canvas');
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(document.getElementById('video'), 0, 0, 48, 48);
-      const dataUrl = canvas.toDataURL('image/jpeg');
-      const name = document.getElementById('name-webcam').value;
+        // Webcam
+        Webcam.set({
+            width: 320,
+            height: 240,
+            image_format: 'jpeg',
+            jpeg_quality: 90
+        });
+        Webcam.attach('#webcam');
 
-      const res = await fetch('/webcam', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: dataUrl, name })
-      });
-      const data = await res.json();
-      if (data.emotion) showResult(data, name);
-    };
+        function takeSnapshot() {
+            const name = document.getElementById('nameWebcam').value;
+            if (!name) return alert("Enter your name");
 
-    function showResult(data, name) {
-      document.getElementById('result').classList.remove('hidden');
-      document.getElementById('result-img').src = '/' + data.image_url + '?t=' + Date.now();
-      document.getElementById('result-name').textContent = name;
-      document.getElementById('emotion').textContent = data.emotion;
-      document.getElementById('emotion').className = 'emotion-tag ' + data.emotion.toLowerCase();
-      document.getElementById('confidence').textContent = (data.confidence * 100).toFixed(1);
-    }
+            Webcam.snap(async (data_uri) => {
+                const loader = document.getElementById('loaderWebcam');
+                const result = document.getElementById('resultWebcam');
+                loader.style.display = 'block';
+                result.innerHTML = '';
+                document.getElementById('results').innerHTML = `<img src="${data_uri}" width="320">`;
 
-    // Stop webcam on tab change
-    window.addEventListener('beforeunload', () => {
-      if (stream) stream.getTracks().forEach(t => t.stop());
-    });
-  </script>
+                try {
+                    const res = await fetch('/webcam', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name, image: data_uri })
+                    });
+                    const data = await res.json();
+                    if (data.error) throw new Error(data.error);
+
+                    result.innerHTML = `
+                        <div class="result">
+                            <h3>${name}, you look <strong>${data.emotion}</strong>!</h3>
+                            <p>Confidence: ${data.confidence}%</p>
+                            <img src="${data.image_url}?t=${Date.now()}" width="300">
+                        </div>`;
+                    loadHistory();
+                } catch (err) {
+                    result.innerHTML = `<p class="error">Error: ${err.message}</p>`;
+                } finally {
+                    loader.style.display = 'none';
+                }
+            });
+        }
+
+        // Load Past Images
+        async function loadHistory() {
+            const history = document.getElementById('history');
+            try {
+                // Simple: list all .jpg in /static/uploads
+                // For demo, just show last 5 (or use API later)
+                const res = await fetch('/static/uploads/');
+                if (!res.ok) throw new Error("No history");
+                history.innerHTML = '<p>No past images yet.</p>';
+                // Note: Render doesn't list dirs → we'll add DB display later
+            } catch {
+                history.innerHTML = '<p>History not available (static files not listable).</p>';
+            }
+        }
+
+        // Load on start
+        loadHistory();
+    </script>
 </body>
 </html>
