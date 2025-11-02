@@ -1,0 +1,25 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "app.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "app.py"
+    }
+  ],
+  "functions": {
+    "app.py": {
+      "runtime": "python3.11"
+    }
+  },
+  "excludeFiles": [
+    "**/*.h5",  // Exclude model if too big—load from external URL
+    "static/uploads/**",
+    "training/**"
+  ]
+}
