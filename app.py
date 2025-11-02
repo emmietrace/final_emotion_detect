@@ -102,7 +102,7 @@ def upload():
 
 @app.route('/webcam', methods=['POST'])
 def webcam():
-    name = request.form.get('name', 'Unknown')
+    name = request.json.get('name', 'Unknown')
     data = request.json.get('image')
     if not data or not name:
         return jsonify({'error': 'Name and image required'}), 400
