@@ -188,3 +188,23 @@ button:hover {
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+.upload-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0;
+  padding: 10px;
+  background: rgba(46, 204, 113, 0.2);
+  border: 1px solid #2ecc71;
+  border-radius: 12px;
+  color: #2ecc71;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.upload-preview svg {
+  flex-shrink: 0;
+}
+
+.hidden { display: none; }
